@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Your Account | Blackspyre Investments</title>
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="styles.css">
+<script src="site.js" defer></script>
+</head>
+<body>
+<div id="site-header"></div>
+<main>
+<div class="hero sm"><div class="wrap"><div class="rule"></div>
+<h1>Your account</h1>
+<p id="who"></p>
+</div></div>
+<section><div class="wrap">
+<div id="out"><p>Loading...</p></div>
+<p class="note">Figures are provided for information only and may be updated. Investing involves risk, including loss of principal. Past performance does not guarantee future results. [ATTORNEY TO REVIEW.]</p>
+<p><button class="btn" id="so" type="button">Sign out</button></p>
+</div></section>
+</main>
+<div id="site-footer"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const money = n => (+n).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+const mon = m => new Date(m + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+const out = () => sb.auth.signOut().then(() => location.replace('portal.html'));
+$('so').onclick = out;
+let timer;
+const idle = () => { clearTimeout(timer); timer = setTimeout(out, 15 * 60 * 1000); };
+['click', 'keydown', 'mousemove'].forEach(e => addEventListener(e, idle));
+idle();
+function chart(rows) {
+  const w = 600, h = 200, p = 12, v = rows.map(r => +r.ending_balance);
+  const mx = Math.max(...v), mn = Math.min(...v);
+  const pts = v.map((n, i) => {
+    const x = rows.length > 1 ? p + i * (w - 2 * p) / (rows.length - 1) : w / 2;
+    const y = mx === mn ? h / 2 : h - p - (n - mn) / (mx - mn) * (h - 2 * p);
+    return x.toFixed(1) + ',' + y.toFixed(1);
+  }).join(' ');
+  return '<svg class="chart" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="Account balance over time"><polyline fill="none" stroke="#c99a3b" stroke-width="2" points="' + pts + '"/></svg>';
+}
+(async () => {
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) return location.replace('portal.html');
+  const a = await sb.auth.mfa.getAuthenticatorAssuranceLevel();
+  if (!a.data || a.data.currentLevel !== 'aal2') return location.replace('portal.html');
+  $('who').textContent = session.user.email;
+  const [b, f] = await Promise.all([
+    sb.from('balances').select('*').order('month'),
+    sb.from('fund_performance').select('*').order('month')
+  ]);
+  if (b.error || !b.data.length) { $('out').innerHTML = '<p>No account data has been posted yet. Please check back or contact us.</p>'; return; }
+  const ret = {}; (f.data || []).forEach(r => ret[r.month] = r.return_pct);
+  const rows = b.data, cur = +rows[rows.length - 1].ending_balance;
+  const net = rows.reduce((s, r) => s + (+r.contributions) - (+r.withdrawals), 0);
+  const chg = cur - net, pct = net > 0 ? ' (' + (chg / net * 100).toFixed(1) + '%)' : '';
+  const body = rows.slice().reverse().map(r => '<tr><td>' + mon(r.month) + '</td><td>' + money(r.contributions) + '</td><td>' + money(r.withdrawals) + '</td><td>' + money(r.ending_balance) + '</td><td>' + (ret[r.month] != null ? (+ret[r.month]).toFixed(2) + '%' : '') + '</td></tr>').join('');
+  $('out').innerHTML =
+    '<div class="stats"><div class="stat"><b>' + money(cur) + '</b><span>Current balance</span></div>' +
+    '<div class="stat"><b>' + money(net) + '</b><span>Net contributions</span></div>' +
+    '<div class="stat"><b>' + money(chg) + pct + '</b><span>Change in value since inception</span></div></div>' +
+    chart(rows) +
+    '<div class="tw"><table><thead><tr><th>Month</th><th>Contributions</th><th>Withdrawals</th><th>Ending balance</th><th>Fund return</th></tr></thead><tbody>' + body + '</tbody></table></div>';
+})();
+</script>
+</body>
+</html>

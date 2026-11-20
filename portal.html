@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Client Portal | Blackspyre Investments</title>
-<meta name="description" content="Client portal for Blackspyre investors.">
+<title>Client Login | Blackspyre Investments</title>
+<meta name="robots" content="noindex">
 <link rel="stylesheet" href="styles.css">
 <script src="site.js" defer></script>
 </head>
@@ -12,10 +12,57 @@
 <div id="site-header"></div>
 <main>
 <div class="hero sm"><div class="wrap"><div class="rule"></div>
-<h1>Client portal</h1><p>Your secure portal is being set up.</p>
+<h1>Client login</h1>
+<p>Sign in to view your account and the fund's performance.</p>
 </div></div>
-<section><div class="wrap"><p>Until the portal opens, please <a href="contact.html">contact us</a> for your account information.</p></div></section>
+<section><div class="wrap">
+<form id="f" class="box">
+<label for="e">Email</label><input id="e" type="email" autocomplete="username" required>
+<label for="p">Password</label><input id="p" type="password" autocomplete="current-password" required>
+<button class="btn" type="submit">Sign in</button>
+</form>
+<form id="m" class="box" hidden>
+<div id="qr"></div>
+<p id="mt"></p>
+<label for="c">6-digit code</label><input id="c" inputmode="numeric" autocomplete="one-time-code" required>
+<button class="btn" type="submit">Verify</button>
+</form>
+<p id="err" class="err" role="alert"></p>
+<p>Need access or a password reset? <a href="contact.html">Contact us</a>.</p>
+</div></section>
 </main>
 <div id="site-footer"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+let fid;
+$('f').onsubmit = async e => {
+  e.preventDefault(); $('err').textContent = '';
+  const { error } = await sb.auth.signInWithPassword({ email: $('e').value, password: $('p').value });
+  if (error) return $('err').textContent = 'Sign-in failed. Check your email and password.';
+  const { data } = await sb.auth.mfa.listFactors();
+  const t = (data && data.totp) || [];
+  if (t.length) {
+    fid = t[0].id;
+    $('mt').textContent = 'Enter the 6-digit code from your authenticator app.';
+  } else {
+    const r = await sb.auth.mfa.enroll({ factorType: 'totp' });
+    if (r.error) return $('err').textContent = 'Could not start two-step setup. Please contact us.';
+    fid = r.data.id;
+    $('qr').innerHTML = '<img src="' + r.data.totp.qr_code + '" alt="Two-step setup QR code" width="180" height="180">';
+    $('mt').textContent = 'Scan this code with an authenticator app, then enter the 6-digit code it shows.';
+  }
+  $('f').hidden = true; $('m').hidden = false;
+};
+$('m').onsubmit = async e => {
+  e.preventDefault(); $('err').textContent = '';
+  const c = await sb.auth.mfa.challenge({ factorId: fid });
+  if (c.error) return $('err').textContent = 'Something went wrong. Please try again.';
+  const v = await sb.auth.mfa.verify({ factorId: fid, challengeId: c.data.id, code: $('c').value.trim() });
+  if (v.error) return $('err').textContent = 'That code did not work. Try again.';
+  location.href = 'dashboard.html';
+};
+</script>
 </body>
 </html>
