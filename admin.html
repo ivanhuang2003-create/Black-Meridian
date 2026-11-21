@@ -36,6 +36,7 @@
 <script src="config.js"></script>
 <script>
 const $ = id => document.getElementById(id);
+const pt = ts => new Date(ts).toLocaleString('en-US', { timeZone: 'America/Los_Angeles', dateStyle: 'medium', timeStyle: 'short' });
 const money = n => n == null ? '' : (+n).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
 const out = () => sb.auth.signOut().then(() => location.replace('portal.html'));
 $('so').onclick = out;
@@ -66,12 +67,12 @@ async function load() {
       bt.onclick = async () => { await sb.from('withdrawal_requests').update({ status: st }).eq('id', r.id); load(); };
       cell.appendChild(bt); cell.append(' ');
     });
-    return [r.email, r.withdraw_all ? 'Entire account' : money(r.amount), r.requested_at.slice(0, 10), r.earliest_date, r.status, cell];
+    return [r.email, r.withdraw_all ? 'Entire account' : money(r.amount), pt(r.requested_at), r.earliest_date, r.status, cell];
   });
   box.append(h2, table(['Email', 'Amount', 'Requested', 'Earliest date', 'Status', 'Set status'], rows));
   const m = await sb.rpc('admin_meetings');
   const h3 = document.createElement('h2'); h3.textContent = 'Meeting requests';
-  box.append(h3, table(['Email', 'Received', 'Message'], (m.data || []).map(r => [r.email, r.created_at.slice(0, 10), r.message])));
+  box.append(h3, table(['Email', 'Received', 'Message'], (m.data || []).map(r => [r.email, pt(r.created_at), r.message])));
   $('out').replaceChildren(box);
   $('ui').replaceChildren(new Option('All investors', ''), ...o.data.map(r => new Option(r.email, r.email)));
   $('upl').hidden = false;
