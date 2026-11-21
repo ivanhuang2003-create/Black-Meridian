@@ -50,7 +50,13 @@ $('f').onsubmit = async e => {
     const r = await sb.auth.mfa.enroll({ factorType: 'totp' });
     if (r.error) return $('err').textContent = 'Could not start two-step setup. Please contact us.';
     fid = r.data.id;
-    $('qr').innerHTML = '<img src="' + r.data.totp.qr_code + '" alt="Two-step setup QR code" width="180" height="180">';
+    const img = new Image();
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(r.data.totp.qr_code);
+    img.alt = 'Two-step setup QR code'; img.width = 180; img.height = 180;
+    $('qr').replaceChildren(img);
+    const key = document.createElement('p');
+    key.textContent = 'Or enter this key manually: ' + r.data.totp.secret;
+    $('qr').appendChild(key);
     $('mt').textContent = 'Scan this code with an authenticator app, then enter the 6-digit code it shows.';
   }
   $('f').hidden = true; $('m').hidden = false;
