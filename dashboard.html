@@ -17,6 +17,17 @@
 </div></div>
 <section><div class="wrap">
 <div id="out"><p>Loading...</p></div>
+<h2>Withdrawals</h2>
+<p>Withdrawals take effect no earlier than 30 days after we receive your request, and not before the 3-month lock-up on each contribution has ended. [ATTORNEY TO REVIEW.]</p>
+<form id="wf" class="box">
+<label for="wa">Amount (USD)</label><input id="wa" type="number" min="0.01" step="0.01">
+<label><input id="wall" type="checkbox"> Withdraw my entire account</label>
+<button class="btn" type="submit">Submit request</button>
+</form>
+<p id="wmsg" role="status"></p>
+<ul id="wlist"></ul>
+<h2>Meetings</h2>
+<p><a class="btn" href="mailto:blackspyreai@gmail.com?subject=Meeting%20request&amp;body=Hello%2C%20I%20would%20like%20to%20request%20a%20meeting.%20My%20availability%20is%3A%20">Request a meeting</a></p>
 <p class="note">Figures are provided for information only and may be updated. Investing involves risk, including loss of principal. Past performance does not guarantee future results. [ATTORNEY TO REVIEW.]</p>
 <p><button class="btn" id="so" type="button">Sign out</button></p>
 </div></section>
@@ -44,12 +55,31 @@ function chart(rows) {
   }).join(' ');
   return '<svg class="chart" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="Account balance over time"><polyline fill="none" stroke="#c99a3b" stroke-width="2" points="' + pts + '"/></svg>';
 }
+const loadReq = async () => {
+  const r = await sb.from('withdrawal_requests').select('*').order('requested_at', { ascending: false });
+  $('wlist').replaceChildren();
+  (r.data || []).forEach(x => {
+    const li = document.createElement('li');
+    li.textContent = (x.withdraw_all ? 'Entire account' : money(x.amount)) + ', requested ' + x.requested_at.slice(0, 10) + ', earliest date ' + x.earliest_date + ', status: ' + x.status;
+    $('wlist').appendChild(li);
+  });
+};
+$('wf').onsubmit = async e => {
+  e.preventDefault(); $('wmsg').textContent = '';
+  const all = $('wall').checked, amt = parseFloat($('wa').value);
+  if (!all && !(amt > 0)) return $('wmsg').textContent = 'Enter an amount, or choose the entire account.';
+  const r = await sb.from('withdrawal_requests').insert({ amount: all ? null : amt, withdraw_all: all }).select().single();
+  if (r.error) return $('wmsg').textContent = 'We could not submit your request (' + r.error.message + ').';
+  $('wmsg').textContent = 'Request received. The earliest withdrawal date is ' + r.data.earliest_date + '. We will confirm by email.';
+  $('wa').value = ''; $('wall').checked = false; loadReq();
+};
 (async () => {
   const { data: { session } } = await sb.auth.getSession();
   if (!session) return location.replace('portal.html');
   const a = await sb.auth.mfa.getAuthenticatorAssuranceLevel();
   if (!a.data || a.data.currentLevel !== 'aal2') return location.replace('portal.html');
   $('who').textContent = session.user.email;
+  loadReq();
   const [b, f] = await Promise.all([
     sb.from('balances').select('*').order('month'),
     sb.from('fund_performance').select('*').order('month')

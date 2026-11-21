@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin | Blackspyre Investments</title>
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="styles.css">
+<script src="site.js" defer></script>
+</head>
+<body>
+<div id="site-header"></div>
+<main>
+<div class="hero sm"><div class="wrap"><div class="rule"></div>
+<h1>Admin</h1>
+<p>All investors and withdrawal requests.</p>
+</div></div>
+<section><div class="wrap">
+<div id="out"><p>Loading...</p></div>
+<p><button class="btn" id="so" type="button">Sign out</button></p>
+</div></section>
+</main>
+<div id="site-footer"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const money = n => n == null ? '' : (+n).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+const out = () => sb.auth.signOut().then(() => location.replace('portal.html'));
+$('so').onclick = out;
+let timer; const idle = () => { clearTimeout(timer); timer = setTimeout(out, 15 * 60 * 1000); };
+['click', 'keydown', 'mousemove'].forEach(e => addEventListener(e, idle)); idle();
+function table(heads, rows) {
+  const wrap = document.createElement('div'); wrap.className = 'tw';
+  const t = document.createElement('table'), h = t.createTHead().insertRow();
+  heads.forEach(x => { const th = document.createElement('th'); th.textContent = x; h.appendChild(th); });
+  const b = t.createTBody();
+  rows.forEach(r => { const tr = b.insertRow(); r.forEach(c => { const td = tr.insertCell(); if (c instanceof Node) td.appendChild(c); else td.textContent = c; }); });
+  wrap.appendChild(t); return wrap;
+}
+async function load() {
+  const o = await sb.rpc('admin_overview');
+  if (o.error) { $('out').textContent = 'Not authorized.'; return; }
+  const w = await sb.rpc('admin_withdrawals');
+  const total = o.data.reduce((s, r) => s + (+r.ending_balance || 0), 0);
+  const box = document.createElement('div');
+  const h1 = document.createElement('h2'); h1.textContent = 'Investors (' + o.data.length + '), total ' + money(total);
+  box.append(h1, table(['Email', 'Latest month', 'Balance', 'Net contributions', 'Change in value'],
+    o.data.map(r => [r.email, r.latest_month || '', money(r.ending_balance), money(r.net_contributions), r.latest_month ? money(r.ending_balance - r.net_contributions) : ''])));
+  const h2 = document.createElement('h2'); h2.textContent = 'Withdrawal requests';
+  const rows = (w.data || []).map(r => {
+    const cell = document.createElement('span');
+    ['approved', 'paid', 'cancelled'].forEach(st => {
+      const bt = document.createElement('button'); bt.textContent = st; bt.type = 'button'; bt.className = 'btn';
+      bt.onclick = async () => { await sb.from('withdrawal_requests').update({ status: st }).eq('id', r.id); load(); };
+      cell.appendChild(bt); cell.append(' ');
+    });
+    return [r.email, r.withdraw_all ? 'Entire account' : money(r.amount), r.requested_at.slice(0, 10), r.earliest_date, r.status, cell];
+  });
+  box.append(h2, table(['Email', 'Amount', 'Requested', 'Earliest date', 'Status', 'Set status'], rows));
+  $('out').replaceChildren(box);
+}
+(async () => {
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) return location.replace('portal.html');
+  const a = await sb.auth.mfa.getAuthenticatorAssuranceLevel();
+  if (!a.data || a.data.currentLevel !== 'aal2') return location.replace('portal.html');
+  load();
+})();
+</script>
+</body>
+</html>
