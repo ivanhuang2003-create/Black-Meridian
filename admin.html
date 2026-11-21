@@ -69,6 +69,9 @@ async function load() {
     return [r.email, r.withdraw_all ? 'Entire account' : money(r.amount), r.requested_at.slice(0, 10), r.earliest_date, r.status, cell];
   });
   box.append(h2, table(['Email', 'Amount', 'Requested', 'Earliest date', 'Status', 'Set status'], rows));
+  const m = await sb.rpc('admin_meetings');
+  const h3 = document.createElement('h2'); h3.textContent = 'Meeting requests';
+  box.append(h3, table(['Email', 'Received', 'Message'], (m.data || []).map(r => [r.email, r.created_at.slice(0, 10), r.message])));
   $('out').replaceChildren(box);
   $('ui').replaceChildren(new Option('All investors', ''), ...o.data.map(r => new Option(r.email, r.email)));
   $('upl').hidden = false;

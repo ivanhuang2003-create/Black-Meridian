@@ -30,12 +30,12 @@
 <p id="wmsg" role="status"></p>
 <ul id="wlist"></ul>
 <h2>Meetings</h2>
-<p>To request your next meeting, email us with the times that work for you.</p>
-<p><a class="btn" href="mailto:blackspyreai@gmail.com?subject=Meeting%20request&amp;body=Hello%2C%20I%20would%20like%20to%20request%20a%20meeting.%20My%20availability%20is%3A%20">Request a meeting</a></p>
-<p>If nothing opened, your computer may not have an email app set up. Use one of these instead:
-<a href="https://mail.google.com/mail/?view=cm&amp;fs=1&amp;to=blackspyreai%40gmail.com&amp;su=Meeting%20request&amp;body=Hello%2C%20I%20would%20like%20to%20request%20a%20meeting.%20My%20availability%20is%3A%20" target="_blank" rel="noopener">Gmail</a>,
-<a href="https://outlook.live.com/mail/0/deeplink/compose?to=blackspyreai%40gmail.com&amp;subject=Meeting%20request&amp;body=Hello%2C%20I%20would%20like%20to%20request%20a%20meeting.%20My%20availability%20is%3A%20" target="_blank" rel="noopener">Outlook</a>,
-or copy our address: <button class="btn" id="copyem" type="button">Copy email address</button> <span id="copymsg" role="status"></span></p>
+<p>Ask for your next meeting. Tell us what times work for you, or anything you would like to cover.</p>
+<form id="mf" class="box">
+<label for="mm">Your message</label><textarea id="mm" rows="4" maxlength="2000" required></textarea>
+<button class="btn" type="submit">Send meeting request</button>
+</form>
+<p id="mmsg" role="status"></p>
 <p class="note">Figures are provided for information only and may be updated. Investing involves risk, including loss of principal. Past performance does not guarantee future results. [ATTORNEY TO REVIEW.]</p>
 <p><button class="btn" id="so" type="button">Sign out</button></p>
 </div></section>
@@ -63,9 +63,20 @@ function chart(rows) {
   }).join(' ');
   return '<svg class="chart" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="Account balance over time"><polyline fill="none" stroke="#c99a3b" stroke-width="2" points="' + pts + '"/></svg>';
 }
-$('copyem').onclick = async () => {
-  try { await navigator.clipboard.writeText('blackspyreai@gmail.com'); $('copymsg').textContent = 'Copied: blackspyreai@gmail.com'; }
-  catch (e) { $('copymsg').textContent = 'Our email address is blackspyreai@gmail.com'; }
+$('mf').onsubmit = async e => {
+  e.preventDefault(); $('mmsg').textContent = '';
+  const msg = $('mm').value.trim(); if (!msg) return;
+  const r = await sb.from('meeting_requests').insert({ message: msg });
+  if (r.error) return $('mmsg').textContent = 'We could not send your request (' + r.error.message + '). Please try again later.';
+  if (window.FORMSPREE_URL) {
+    try {
+      const u = (await sb.auth.getUser()).data.user;
+      fetch(window.FORMSPREE_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ email: u.email, _subject: 'Blackspyre meeting request', message: msg }) });
+    } catch (err) {}
+  }
+  $('mmsg').textContent = 'Thank you. Your request was sent and we will reply by email.';
+  $('mf').reset();
 };
 const loadReports = async () => {
   const r = await sb.from('reports').select('*').order('month', { ascending: false });
