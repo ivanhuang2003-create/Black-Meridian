@@ -45,6 +45,7 @@
 <script src="config.js"></script>
 <script>
 const $ = id => document.getElementById(id);
+const pt = ts => new Date(ts).toLocaleString('en-US', { timeZone: 'America/Los_Angeles', dateStyle: 'medium', timeStyle: 'short' });
 const money = n => (+n).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
 const mon = m => new Date(m + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
 const out = () => sb.auth.signOut().then(() => location.replace('portal.html'));
@@ -74,7 +75,7 @@ $('mf').onsubmit = async e => {
     try {
       const u = (await sb.auth.getUser()).data.user;
       const f = await fetch(window.FORMSPREE_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify({ email: u.email, _subject: 'Blackspyre meeting request', message: msg }) });
+        body: JSON.stringify({ email: u.email, _subject: 'Blackspyre meeting request', message: msg, sent_at: pt(new Date()) + ' Pacific' }) });
       if (!f.ok) { let t = ''; try { t = JSON.stringify(await f.json()); } catch (x) {} note = ' [Test note: Formspree answered ' + f.status + ' ' + t.slice(0, 200) + ']'; }
     } catch (err) { note = ' [Test note: could not reach Formspree: ' + err.message + ']'; }
   }
@@ -103,7 +104,7 @@ const loadReq = async () => {
   $('wlist').replaceChildren();
   (r.data || []).forEach(x => {
     const li = document.createElement('li');
-    li.textContent = (x.withdraw_all ? 'Entire account' : money(x.amount)) + ', requested ' + x.requested_at.slice(0, 10) + ', earliest date ' + x.earliest_date + ', status: ' + x.status;
+    li.textContent = (x.withdraw_all ? 'Entire account' : money(x.amount)) + ', requested ' + pt(x.requested_at) + ', earliest date ' + x.earliest_date + ', status: ' + x.status;
     $('wlist').appendChild(li);
   });
 };
