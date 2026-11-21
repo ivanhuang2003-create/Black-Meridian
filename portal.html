@@ -47,10 +47,21 @@ $('f').onsubmit = async e => {
     fid = t[0].id;
     $('mt').textContent = 'Enter the 6-digit code from your authenticator app.';
   } else {
-    const r = await sb.auth.mfa.enroll({ factorType: 'totp' });
-    if (r.error) return $('err').textContent = 'Could not start two-step setup. Please contact us.';
+    for (const x of ((data && data.all) || [])) {
+      if (x.status === 'unverified') await sb.auth.mfa.unenroll({ factorId: x.id });
+    }
+    const r = await sb.auth.mfa.enroll({ factorType: 'totp', friendlyName: 'Authenticator ' + Date.now() });
+    if (r.error) return $('err').textContent = 'Could not start two-step setup (' + r.error.message + '). Please contact us.';
     fid = r.data.id;
-    $('qr').innerHTML = '<img src="' + r.data.totp.qr_code + '" alt="Two-step setup QR code" width="180" height="180">';
+    const img = new Image();
+    let q = r.data.totp.qr_code.replace(/^data:image\/svg\+xml;[^,]*,/i, '');
+    if (q.indexOf('%3Csvg') !== -1) q = decodeURIComponent(q);
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(q);
+    img.alt = 'Two-step setup QR code'; img.width = 180; img.height = 180;
+    $('qr').replaceChildren(img);
+    const key = document.createElement('p');
+    key.textContent = 'Or enter this key manually: ' + r.data.totp.secret;
+    $('qr').appendChild(key);
     $('mt').textContent = 'Scan this code with an authenticator app, then enter the 6-digit code it shows.';
   }
   $('f').hidden = true; $('m').hidden = false;
