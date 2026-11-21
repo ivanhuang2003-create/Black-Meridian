@@ -17,6 +17,9 @@
 </div></div>
 <section><div class="wrap">
 <div id="out"><p>Loading...</p></div>
+<h2>Monthly reports</h2>
+<ul id="rlist"></ul>
+<p id="rmsg" role="status"></p>
 <h2>Withdrawals</h2>
 <p>Withdrawals take effect no earlier than 30 days after we receive your request, and not before the 3-month lock-up on each contribution has ended. [ATTORNEY TO REVIEW.]</p>
 <form id="wf" class="box">
@@ -55,6 +58,23 @@ function chart(rows) {
   }).join(' ');
   return '<svg class="chart" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="Account balance over time"><polyline fill="none" stroke="#c99a3b" stroke-width="2" points="' + pts + '"/></svg>';
 }
+const loadReports = async () => {
+  const r = await sb.from('reports').select('*').order('month', { ascending: false });
+  const ul = $('rlist'); ul.replaceChildren();
+  if (!(r.data || []).length) { ul.textContent = 'No reports have been posted yet.'; return; }
+  r.data.forEach(x => {
+    const li = document.createElement('li');
+    li.append(mon(x.month) + ': ' + x.title + ' ');
+    const b = document.createElement('button'); b.className = 'btn'; b.type = 'button'; b.textContent = 'Download';
+    b.onclick = async () => {
+      $('rmsg').textContent = '';
+      const u = await sb.storage.from('reports').createSignedUrl(x.file_path, 60, { download: true });
+      if (u.error) return $('rmsg').textContent = 'Could not open the report (' + u.error.message + ').';
+      location.href = u.data.signedUrl;
+    };
+    li.appendChild(b); ul.appendChild(li);
+  });
+};
 const loadReq = async () => {
   const r = await sb.from('withdrawal_requests').select('*').order('requested_at', { ascending: false });
   $('wlist').replaceChildren();
@@ -80,6 +100,7 @@ $('wf').onsubmit = async e => {
   if (!a.data || a.data.currentLevel !== 'aal2') return location.replace('portal.html');
   $('who').textContent = session.user.email;
   loadReq();
+  loadReports();
   const [b, f] = await Promise.all([
     sb.from('balances').select('*').order('month'),
     sb.from('fund_performance').select('*').order('month')

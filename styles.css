@@ -53,3 +53,4 @@ th,td{text-align:right;padding:.5rem .7rem;border-bottom:1px solid var(--line)}
 th:first-child,td:first-child{text-align:left}
 th{font:500 .85rem Jost,sans-serif}
 svg.chart{width:100%;height:auto;background:#fff;border:1px solid var(--line);margin-bottom:2rem}
+select{font:inherit;padding:.6rem .7rem;border:1px solid var(--muted);background:#fff;color:var(--ink)}

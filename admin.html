@@ -17,6 +17,17 @@
 </div></div>
 <section><div class="wrap">
 <div id="out"><p>Loading...</p></div>
+<div id="upl" hidden>
+<h2>Upload a monthly report</h2>
+<form id="uf" class="box">
+<label for="um">Month</label><input id="um" type="month" required>
+<label for="ut">Title</label><input id="ut" type="text" placeholder="Monthly report" required>
+<label for="ui">Visible to</label><select id="ui"></select>
+<label for="ufile">PDF file (under 20 MB)</label><input id="ufile" type="file" accept="application/pdf" required>
+<button class="btn" type="submit">Upload</button>
+</form>
+<p id="umsg" role="status"></p>
+</div>
 <p><button class="btn" id="so" type="button">Sign out</button></p>
 </div></section>
 </main>
@@ -59,7 +70,23 @@ async function load() {
   });
   box.append(h2, table(['Email', 'Amount', 'Requested', 'Earliest date', 'Status', 'Set status'], rows));
   $('out').replaceChildren(box);
+  $('ui').replaceChildren(new Option('All investors', ''), ...o.data.map(r => new Option(r.email, r.email)));
+  $('upl').hidden = false;
 }
+$('uf').onsubmit = async e => {
+  e.preventDefault(); $('umsg').textContent = '';
+  const f = $('ufile').files[0];
+  if (!f || f.type !== 'application/pdf' || f.size > 20 * 1024 * 1024) return $('umsg').textContent = 'Choose a PDF under 20 MB.';
+  const [y, m] = $('um').value.split('-').map(Number);
+  const d = new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);
+  const path = y + '/' + crypto.randomUUID() + '.pdf';
+  const up = await sb.storage.from('reports').upload(path, f, { contentType: 'application/pdf' });
+  if (up.error) return $('umsg').textContent = 'Upload failed (' + up.error.message + ').';
+  const r = await sb.rpc('admin_add_report', { p_month: d, p_title: $('ut').value.trim(), p_path: path, p_email: $('ui').value || null });
+  if (r.error) return $('umsg').textContent = 'Saved the file but could not list it (' + r.error.message + ').';
+  $('umsg').textContent = 'Uploaded. Visible to ' + ($('ui').value || 'all investors') + '.';
+  $('uf').reset();
+};
 (async () => {
   const { data: { session } } = await sb.auth.getSession();
   if (!session) return location.replace('portal.html');
