@@ -54,7 +54,8 @@ function chart(rows) {
     sb.from('balances').select('*').order('month'),
     sb.from('fund_performance').select('*').order('month')
   ]);
-  if (b.error || !b.data.length) { $('out').innerHTML = '<p>No account data has been posted yet. Please check back or contact us.</p>'; return; }
+  if (b.error) { $('out').textContent = 'We could not load your account data (' + b.error.message + '). Please contact us.'; return; }
+  if (!b.data.length) { $('out').innerHTML = '<p>No account data has been posted yet. Please check back or contact us.</p>'; return; }
   const ret = {}; (f.data || []).forEach(r => ret[r.month] = r.return_pct);
   const rows = b.data, cur = +rows[rows.length - 1].ending_balance;
   const net = rows.reduce((s, r) => s + (+r.contributions) - (+r.withdrawals), 0);
