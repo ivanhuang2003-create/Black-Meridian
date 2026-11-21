@@ -68,14 +68,17 @@ $('mf').onsubmit = async e => {
   const msg = $('mm').value.trim(); if (!msg) return;
   const r = await sb.from('meeting_requests').insert({ message: msg });
   if (r.error) return $('mmsg').textContent = 'We could not send your request (' + r.error.message + '). Please try again later.';
-  if (window.FORMSPREE_URL) {
+  let note = '';
+  if (!window.FORMSPREE_URL) note = ' [Test note: email notice is not set up, config.js has no Formspree address.]';
+  else {
     try {
       const u = (await sb.auth.getUser()).data.user;
-      fetch(window.FORMSPREE_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      const f = await fetch(window.FORMSPREE_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
         body: JSON.stringify({ email: u.email, _subject: 'Blackspyre meeting request', message: msg }) });
-    } catch (err) {}
+      if (!f.ok) { let t = ''; try { t = JSON.stringify(await f.json()); } catch (x) {} note = ' [Test note: Formspree answered ' + f.status + ' ' + t.slice(0, 200) + ']'; }
+    } catch (err) { note = ' [Test note: could not reach Formspree: ' + err.message + ']'; }
   }
-  $('mmsg').textContent = 'Thank you. Your request was sent and we will reply by email.';
+  $('mmsg').textContent = 'Thank you. Your request was sent and we will reply by email.' + note;
   $('mf').reset();
 };
 const loadReports = async () => {
