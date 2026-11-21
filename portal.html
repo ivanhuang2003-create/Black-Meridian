@@ -51,7 +51,9 @@ $('f').onsubmit = async e => {
     if (r.error) return $('err').textContent = 'Could not start two-step setup. Please contact us.';
     fid = r.data.id;
     const img = new Image();
-    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(r.data.totp.qr_code);
+    let q = r.data.totp.qr_code.replace(/^data:image\/svg\+xml;[^,]*,/i, '');
+    if (q.indexOf('%3Csvg') !== -1) q = decodeURIComponent(q);
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(q);
     img.alt = 'Two-step setup QR code'; img.width = 180; img.height = 180;
     $('qr').replaceChildren(img);
     const key = document.createElement('p');
